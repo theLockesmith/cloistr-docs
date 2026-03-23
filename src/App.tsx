@@ -1,10 +1,12 @@
 import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
 import { Editor } from './components/Editor.js'
-import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
+import { generateSecretKey, getPublicKey, finalizeEvent, nip19 } from 'nostr-tools'
+import type { SignerInterface } from '@cloistr/collab-common'
+import type { Event, UnsignedEvent } from 'nostr-tools'
 
-// Temporary Auth Context until cloistr-collab-common exports are ready
+// Auth context providing signer and relay config
 interface AuthContextType {
-  privateKey: Uint8Array
+  signer: SignerInterface
   publicKey: string
   relayUrl: string
 }
@@ -14,14 +16,13 @@ const AuthContext = createContext<AuthContextType | null>(null)
 interface AuthProviderProps {
   children: ReactNode
   relayUrl: string
-  privateKey: Uint8Array
+  signer: SignerInterface
+  publicKey: string
 }
 
-function AuthProvider({ children, relayUrl, privateKey }: AuthProviderProps) {
-  const publicKey = getPublicKey(privateKey)
-
+function AuthProvider({ children, relayUrl, signer, publicKey }: AuthProviderProps) {
   return (
-    <AuthContext.Provider value={{ privateKey, publicKey, relayUrl }}>
+    <AuthContext.Provider value={{ signer, publicKey, relayUrl }}>
       {children}
     </AuthContext.Provider>
   )
@@ -35,22 +36,46 @@ export function useNostrAuth() {
   return context
 }
 
+/**
+ * Create a SignerInterface from a private key
+ * In production, this would be replaced with NIP-46 or NIP-07 signer
+ */
+function createLocalSigner(privateKey: Uint8Array): SignerInterface {
+  const pubkey = getPublicKey(privateKey)
+
+  return {
+    async getPublicKey(): Promise<string> {
+      return pubkey
+    },
+    async signEvent(event: UnsignedEvent): Promise<Event> {
+      return finalizeEvent(event, privateKey)
+    },
+    async encrypt(_pubkey: string, _plaintext: string): Promise<string> {
+      throw new Error('Encryption not implemented for local signer')
+    },
+    async decrypt(_pubkey: string, _ciphertext: string): Promise<string> {
+      throw new Error('Decryption not implemented for local signer')
+    },
+  }
+}
+
 function App() {
   const [authConfig, setAuthConfig] = useState<{
     relayUrl: string
-    privateKey: Uint8Array
+    signer: SignerInterface
     publicKey: string
   } | null>(null)
 
   useEffect(() => {
-    // For demo purposes, generate a temporary key pair
-    // In production, this would use coldforge-signer
+    // Generate a session key for demo purposes
+    // In production, this would connect to coldforge-signer via NIP-46
     const privateKey = generateSecretKey()
     const publicKey = getPublicKey(privateKey)
+    const signer = createLocalSigner(privateKey)
 
     setAuthConfig({
-      relayUrl: 'wss://relay.cloistr.xyz', // Placeholder relay URL
-      privateKey,
+      relayUrl: 'wss://nos.lol', // Public relay for demo
+      signer,
       publicKey
     })
   }, [])
@@ -62,7 +87,8 @@ function App() {
   return (
     <AuthProvider
       relayUrl={authConfig.relayUrl}
-      privateKey={authConfig.privateKey}
+      signer={authConfig.signer}
+      publicKey={authConfig.publicKey}
     >
       <div className="app">
         <header>

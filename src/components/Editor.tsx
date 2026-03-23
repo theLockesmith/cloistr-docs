@@ -2,8 +2,9 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import * as Y from 'yjs'
+import { NostrSyncProvider } from '@cloistr/collab-common'
 import { useNostrAuth } from '../App.js'
 
 interface EditorProps {
@@ -11,48 +12,70 @@ interface EditorProps {
 }
 
 export function Editor({ documentId }: EditorProps) {
-  const { publicKey } = useNostrAuth()
+  const { signer, publicKey, relayUrl } = useNostrAuth()
   const [ydoc] = useState(() => new Y.Doc())
-  const [provider, setProvider] = useState<any>(null)
+  const [provider, setProvider] = useState<NostrSyncProvider | null>(null)
+  const [peerCount, setPeerCount] = useState(0)
+  const [isConnected, setIsConnected] = useState(false)
+  const providerRef = useRef<NostrSyncProvider | null>(null)
+
+  // Initialize NostrSyncProvider
+  useEffect(() => {
+    const syncProvider = new NostrSyncProvider(ydoc, {
+      signer,
+      relayUrl,
+      docId: documentId,
+    })
+
+    syncProvider.onConnect = () => {
+      console.log('[Editor] Connected to relay')
+      setIsConnected(true)
+    }
+
+    syncProvider.onDisconnect = () => {
+      console.log('[Editor] Disconnected from relay')
+      setIsConnected(false)
+    }
+
+    syncProvider.onPeersChange = (count) => {
+      console.log(`[Editor] Peer count: ${count}`)
+      setPeerCount(count)
+    }
+
+    syncProvider.onError = (error) => {
+      console.error('[Editor] Sync error:', error)
+    }
+
+    // Connect to relay
+    syncProvider.connect().catch(console.error)
+
+    providerRef.current = syncProvider
+    setProvider(syncProvider)
+
+    return () => {
+      syncProvider.destroy()
+      providerRef.current = null
+    }
+  }, [documentId, ydoc, signer, relayUrl])
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable the default history extension
-        history: false,
+        history: false, // Disable history - Yjs handles undo/redo
       }),
       Collaboration.configure({
         document: ydoc,
       }),
       CollaborationCursor.configure({
-        provider: provider,
+        provider: provider as any, // TipTap expects a y-websocket-like provider
         user: {
           name: publicKey?.slice(0, 8) || 'Anonymous',
           color: `#${publicKey?.slice(-6) || '000000'}`,
         },
       }),
     ],
-    content: '<p>Start writing your collaborative document...</p>',
-  })
-
-  useEffect(() => {
-    // TODO: Implement WebSocket provider for Yjs sync via Nostr
-    // This would connect to a Nostr relay and sync Y.Doc changes
-    // For now, we'll just set up the basic structure
-
-    // Placeholder for Nostr-based provider
-    const mockProvider = {
-      on: () => {},
-      off: () => {},
-      destroy: () => {},
-    }
-
-    setProvider(mockProvider)
-
-    return () => {
-      mockProvider.destroy()
-    }
-  }, [documentId, ydoc])
+    content: '',
+  }, [provider]) // Re-create editor when provider changes
 
   return (
     <div className="editor-container">
@@ -105,13 +128,17 @@ export function Editor({ documentId }: EditorProps) {
 
       <div className="editor-status">
         <p>Document ID: {documentId}</p>
-        <p>Connected users: 1 (you)</p>
+        <p>
+          Status: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+          {' · '}
+          {peerCount + 1} user{peerCount > 0 ? 's' : ''} editing
+        </p>
       </div>
     </div>
   )
 }
 
-// Add styles for the toolbar
+// Styles
 const style = document.createElement('style')
 style.textContent = `
   .editor-container {
@@ -145,6 +172,18 @@ style.textContent = `
   .editor-toolbar button.active {
     background-color: #3b82f6;
     color: white;
+    border-color: #3b82f6;
+  }
+
+  .ProseMirror {
+    min-height: 400px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    outline: none;
+  }
+
+  .ProseMirror:focus {
     border-color: #3b82f6;
   }
 

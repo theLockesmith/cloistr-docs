@@ -4,8 +4,10 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { useEffect, useState, useRef } from 'react'
 import * as Y from 'yjs'
-import { NostrSyncProvider } from '@cloistr/collab-common'
+import { NostrSyncProvider, useDocumentPersistence } from '@cloistr/collab-common'
 import { useNostrAuth } from '../App.js'
+
+const BLOSSOM_URL = 'https://files.cloistr.xyz'
 
 interface EditorProps {
   documentId: string
@@ -57,6 +59,29 @@ export function Editor({ documentId }: EditorProps) {
       providerRef.current = null
     }
   }, [documentId, ydoc, signer, relayUrl])
+
+  // Document persistence via Blossom
+  const [persistenceState, persistenceControls] = useDocumentPersistence(
+    ydoc,
+    {
+      documentId,
+      blossomUrl: BLOSSOM_URL,
+      relayUrl,
+      signer,
+    },
+    {
+      autoLoad: true,
+      autoSaveInterval: 60000, // Auto-save every 60 seconds
+    }
+  )
+
+  const handleSave = async () => {
+    try {
+      await persistenceControls.save()
+    } catch (error) {
+      console.error('[Editor] Save failed:', error)
+    }
+  }
 
   const editor = useEditor({
     extensions: [
@@ -122,6 +147,18 @@ export function Editor({ documentId }: EditorProps) {
         >
           Quote
         </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {persistenceState.dirty && (
+            <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>Unsaved changes</span>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!persistenceState.initialized || persistenceState.saving || !persistenceState.dirty}
+            className={persistenceState.dirty ? 'save-dirty' : 'save-clean'}
+          >
+            {persistenceState.saving ? 'Saving...' : persistenceState.dirty ? 'Save' : 'Saved'}
+          </button>
+        </div>
       </div>
 
       <EditorContent editor={editor} />
@@ -129,9 +166,16 @@ export function Editor({ documentId }: EditorProps) {
       <div className="editor-status">
         <p>Document ID: {documentId}</p>
         <p>
-          Status: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+          Sync: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
           {' · '}
           {peerCount + 1} user{peerCount > 0 ? 's' : ''} editing
+        </p>
+        <p>
+          Storage: {persistenceState.loading ? '⏳ Loading...' :
+                   persistenceState.saving ? '💾 Saving...' :
+                   persistenceState.lastSave ? `✓ Saved ${new Date(persistenceState.lastSave.timestamp).toLocaleTimeString()}` :
+                   '○ Not saved yet'}
+          {persistenceState.error && <span style={{ color: '#ef4444' }}> · Error: {persistenceState.error.message}</span>}
         </p>
       </div>
     </div>
@@ -198,6 +242,23 @@ style.textContent = `
 
   .editor-status p {
     margin: 0.25rem 0;
+  }
+
+  .editor-toolbar button.save-dirty {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  }
+
+  .editor-toolbar button.save-clean {
+    background-color: #10b981;
+    color: white;
+    border-color: #10b981;
+  }
+
+  .editor-toolbar button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `
 document.head.appendChild(style)

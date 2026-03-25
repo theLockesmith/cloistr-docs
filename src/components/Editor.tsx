@@ -5,7 +5,7 @@ import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { useEffect, useState, useRef } from 'react'
 import * as Y from 'yjs'
 import { NostrSyncProvider, useDocumentPersistence } from '@cloistr/collab-common'
-import { useNostrAuth } from '../App.js'
+import type { SignerInterface } from '@cloistr/collab-common/auth'
 
 // For development, use VITE_BLOSSOM_URL env var or fall back to public server
 // Production uses files.cloistr.xyz with platform auth
@@ -13,10 +13,12 @@ const BLOSSOM_URL = import.meta.env.VITE_BLOSSOM_URL || 'https://nostr.download'
 
 interface EditorProps {
   documentId: string
+  signer: SignerInterface
+  publicKey: string
+  relayUrl: string
 }
 
-export function Editor({ documentId }: EditorProps) {
-  const { signer, publicKey, relayUrl } = useNostrAuth()
+export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps) {
   const [ydoc] = useState(() => new Y.Doc())
   const [provider, setProvider] = useState<NostrSyncProvider | null>(null)
   const [peerCount, setPeerCount] = useState(0)

@@ -16,6 +16,12 @@ RUN npm ci
 # Copy source (including linked collab-common)
 COPY . .
 
+# Vite env vars (must be set before build)
+ARG VITE_RELAY_URL=wss://relay.cloistr.xyz
+ARG VITE_BLOSSOM_URL=https://files.cloistr.xyz
+ENV VITE_RELAY_URL=${VITE_RELAY_URL}
+ENV VITE_BLOSSOM_URL=${VITE_BLOSSOM_URL}
+
 # Build
 RUN npm run build
 

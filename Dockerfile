@@ -8,7 +8,7 @@ COPY package.json package-lock.json .npmrc ./
 
 # Auth token passed as build arg
 ARG NPM_TOKEN
-RUN echo "//git.coldforge.xyz/api/v4/packages/npm/:_authToken=${NPM_TOKEN}" >> .npmrc
+RUN echo "//git.coldforge.xyz/api/v4/projects/44/packages/npm/:_authToken=${NPM_TOKEN}" >> .npmrc
 
 # Install dependencies
 RUN npm ci

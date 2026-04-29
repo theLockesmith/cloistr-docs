@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Editor } from './components/Editor.js'
 import { useNostrAuth } from '@cloistr/collab-common/auth'
-import { Header, Footer, SharedAuthProvider } from '@cloistr/ui/components'
+import { Header, Footer, SharedAuthProvider, ToastProvider } from '@cloistr/ui/components'
 import '@cloistr/ui/styles'
 
 // Default relay for Yjs sync
@@ -64,9 +64,11 @@ function AppContent() {
 
 function App() {
   return (
-    <SharedAuthProvider>
-      <AppContent />
-    </SharedAuthProvider>
+    <ToastProvider>
+      <SharedAuthProvider>
+        <AppContent />
+      </SharedAuthProvider>
+    </ToastProvider>
   )
 }
 

@@ -5,7 +5,7 @@ import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { useEffect, useState, useRef } from 'react'
 import * as Y from 'yjs'
 import { NostrSyncProvider, useDocumentPersistence } from '@cloistr/collab-common'
-import type { SignerInterface } from '@cloistr/collab-common/auth'
+import type { SignerInterface } from '@cloistr/auth'
 
 // For development, use VITE_BLOSSOM_URL env var or fall back to public server
 // Production uses files.cloistr.xyz with platform auth

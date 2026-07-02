@@ -4,24 +4,31 @@ default:
 
 stages:
   - build
+  - smoke
 
-variables:
-  NODE_VERSION: "22"
+include:
+  - project: 'coldforge/ci-templates'
+    ref: main
+    file: '/templates/frontend-smoke.yml'
 
-# Build container image
 build:
   stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
+  tags:
+    - local
   script:
     - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"username\":\"${CI_REGISTRY_USER}\",\"password\":\"${CI_REGISTRY_PASSWORD}\"}}}" > /kaniko/.docker/config.json
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"username\":\"${CI_REGISTRY_USER}\",\"password\":\"${CI_REGISTRY_PASSWORD}\"}}"}" > /kaniko/.docker/config.json
     - /kaniko/executor
       --context=${CI_PROJECT_DIR}
       --dockerfile=${CI_PROJECT_DIR}/Dockerfile
       --build-arg=NPM_TOKEN=${CI_JOB_TOKEN}
       --destination=${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}
       --destination=${CI_REGISTRY_IMAGE}:latest
-  tags:
-    - local
+
+# Smoke-test: load built image in real Chromium, fail on console errors / blank page
+smoke-test:
+  extends: .smoke-test
+  needs: ["build"]

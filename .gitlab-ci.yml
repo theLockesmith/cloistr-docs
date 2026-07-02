@@ -28,7 +28,7 @@ build:
       --destination=${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}
       --destination=${CI_REGISTRY_IMAGE}:latest
 
-# Smoke-test: load built image in real Chromium, fail on console errors / blank page
+# Smoke-test gate: load built image (with crypto.randomUUID polyfill) in real Chromium, fail on console errors / blank page
 smoke-test:
   extends: .smoke-test
   needs: ["build"]

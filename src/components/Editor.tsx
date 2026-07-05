@@ -153,7 +153,7 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {persistenceState.dirty && (
-            <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>Unsaved changes</span>
+            <span style={{ color: 'var(--cloistr-warning)', fontSize: '0.75rem' }}>Unsaved changes</span>
           )}
           <button
             onClick={handleSave}
@@ -179,7 +179,7 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
                    persistenceState.saving ? '💾 Saving...' :
                    persistenceState.lastSave ? `✓ Saved ${new Date(persistenceState.lastSave.timestamp).toLocaleTimeString()}` :
                    '○ Not saved yet'}
-          {persistenceState.error && <span style={{ color: '#ef4444' }}> · Error: {persistenceState.error.message}</span>}
+          {persistenceState.error && <span style={{ color: 'var(--cloistr-error)' }}> · Error: {persistenceState.error.message}</span>}
         </p>
       </div>
     </div>
@@ -199,14 +199,14 @@ style.textContent = `
     gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.5rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--cloistr-border);
     border-radius: 0.375rem;
-    background-color: #f8fafc;
+    background-color: var(--cloistr-bg-hover);
   }
 
   .editor-toolbar button {
     padding: 0.25rem 0.5rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--cloistr-border);
     border-radius: 0.25rem;
     background-color: white;
     cursor: pointer;
@@ -214,34 +214,34 @@ style.textContent = `
   }
 
   .editor-toolbar button:hover {
-    background-color: #f3f4f6;
+    background-color: var(--cloistr-bg-hover);
   }
 
   .editor-toolbar button.active {
-    background-color: #3b82f6;
+    background-color: var(--cloistr-info);
     color: white;
-    border-color: #3b82f6;
+    border-color: var(--cloistr-info);
   }
 
   .ProseMirror {
     min-height: 400px;
     padding: 1rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--cloistr-border);
     border-radius: 0.375rem;
     outline: none;
   }
 
   .ProseMirror:focus {
-    border-color: #3b82f6;
+    border-color: var(--cloistr-info);
   }
 
   .editor-status {
     margin-top: 1rem;
     padding: 0.5rem;
-    background-color: #f8fafc;
+    background-color: var(--cloistr-bg-hover);
     border-radius: 0.375rem;
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--cloistr-text-muted);
   }
 
   .editor-status p {
@@ -249,15 +249,15 @@ style.textContent = `
   }
 
   .editor-toolbar button.save-dirty {
-    background-color: #3b82f6;
+    background-color: var(--cloistr-info);
     color: white;
-    border-color: #3b82f6;
+    border-color: var(--cloistr-info);
   }
 
   .editor-toolbar button.save-clean {
-    background-color: #10b981;
+    background-color: var(--cloistr-success);
     color: white;
-    border-color: #10b981;
+    border-color: var(--cloistr-success);
   }
 
   .editor-toolbar button:disabled {

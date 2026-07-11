@@ -218,7 +218,8 @@ style.textContent = `
     padding: 0.25rem 0.5rem;
     border: 1px solid var(--cloistr-border);
     border-radius: 0.25rem;
-    background-color: white;
+    background-color: var(--cloistr-bg-elevated);
+    color: var(--cloistr-text);
     cursor: pointer;
     font-size: 0.875rem;
   }

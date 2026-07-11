@@ -72,6 +72,18 @@ button:focus-visible {
   min-height: 100vh;
 }
 
+/* Column layout so the footer sits at the bottom instead of floating up
+   under short editor content. */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app main {
+  flex: 1 0 auto;
+}
+
 /* TipTap Editor Styles */
 .ProseMirror {
   outline: none;

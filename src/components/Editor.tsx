@@ -95,13 +95,23 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
       Collaboration.configure({
         document: ydoc,
       }),
-      CollaborationCursor.configure({
-        provider: provider as any, // TipTap expects a y-websocket-like provider
-        user: {
-          name: publicKey?.slice(0, 8) || 'Anonymous',
-          color: `#${publicKey?.slice(-6) || '000000'}`,
-        },
-      }),
+      // CollaborationCursor's addProseMirrorPlugins() dereferences
+      // provider.awareness immediately, so only attach it once the provider
+      // exists. On first render provider is null (set async in the effect
+      // above); including it here throws "Cannot read properties of null
+      // (reading 'awareness')" and takes down the authenticated view. The
+      // editor re-creates on [provider] change, so the cursor lands on connect.
+      ...(provider
+        ? [
+            CollaborationCursor.configure({
+              provider: provider as any, // TipTap expects a y-websocket-like provider
+              user: {
+                name: publicKey?.slice(0, 8) || 'Anonymous',
+                color: `#${publicKey?.slice(-6) || '000000'}`,
+              },
+            }),
+          ]
+        : []),
     ],
     content: '',
   }, [provider]) // Re-create editor when provider changes

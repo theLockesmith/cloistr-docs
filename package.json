@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@cloistr/auth": "^0.1.2",
+    "@cloistr/auth": "^0.2.2",
     "@cloistr/collab-common": "^0.2.6",
-    "@cloistr/ui": "^0.12.8",
+    "@cloistr/ui": "^0.17.0",
     "@tiptap/extension-collaboration": "^2.2.4",
     "@tiptap/extension-collaboration-cursor": "^2.2.4",
     "@tiptap/pm": "^2.2.4",

@@ -206,6 +206,10 @@ style.textContent = `
 
   .editor-toolbar {
     display: flex;
+    /* Wrap on narrow screens. Measured at 375x667: the toolbar ran 62px past
+       the right edge, pushing the save button off-screen — this app has no
+       width breakpoints at all, only prefers-color-scheme. */
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.5rem;
@@ -274,6 +278,26 @@ style.textContent = `
   .editor-toolbar button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* Mobile. This app previously had NO width breakpoints, so the fixed
+     800px-centred container and the non-wrapping toolbar simply overflowed a
+     phone — measured at 62px past the right edge. */
+  @media (max-width: 768px) {
+    .editor-container {
+      max-width: 100%;
+      padding: 0 0.5rem;
+    }
+
+    .editor-toolbar {
+      padding: 0.4rem;
+      row-gap: 0.4rem;
+    }
+
+    .editor-toolbar button {
+      /* Comfortable tap target; the default padding gives ~24px rows. */
+      min-height: 40px;
+    }
   }
 `
 document.head.appendChild(style)

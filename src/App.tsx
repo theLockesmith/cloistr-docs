@@ -45,7 +45,11 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <SharedAuthProvider>
+        {/* signerUrl is routed through the /signer/ nginx proxy (same-origin) so
+            that POST /api/v1/nostrconnect/session is not blocked by CORS.
+            The proxy forwards requests to https://signer.cloistr.xyz/ transparently,
+            including the .cloistr.xyz domain cookies needed for session auth. */}
+        <SharedAuthProvider signerUrl="/signer">
           <AppContent />
         </SharedAuthProvider>
       </ToastProvider>

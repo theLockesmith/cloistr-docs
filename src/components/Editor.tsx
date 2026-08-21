@@ -4,6 +4,7 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { useEffect, useState, useRef } from 'react'
 import * as Y from 'yjs'
+import { SimplePool } from 'nostr-tools'
 import { NostrSyncProvider, useDocumentPersistence } from '@cloistr/collab-common'
 import type { SignerInterface } from '@cloistr/auth'
 
@@ -18,12 +19,62 @@ interface EditorProps {
   relayUrl: string
 }
 
+/**
+ * Fetch the user's kind:0 profile from the relay to get a human-readable
+ * display name for the collaboration cursor. Falls back to the truncated
+ * pubkey while the fetch is in flight.
+ */
+function useDisplayName(publicKey: string, relayUrl: string): string {
+  const [displayName, setDisplayName] = useState<string>(() => publicKey.slice(0, 8))
+
+  useEffect(() => {
+    if (!publicKey) return
+    const pool = new SimplePool()
+    let cancelled = false
+
+    const run = async () => {
+      try {
+        const events = await pool.querySync([relayUrl], {
+          kinds: [0],
+          authors: [publicKey],
+          limit: 1,
+        })
+        if (cancelled) return
+        const event = events[0]
+        if (!event) return
+        const profile = JSON.parse(event.content) as Record<string, string>
+        const name =
+          profile.display_name?.trim() ||
+          profile.name?.trim() ||
+          profile.nip05?.split('@')[0] ||
+          null
+        if (name) {
+          setDisplayName(name)
+        }
+      } catch {
+        // Profile unavailable — truncated pubkey fallback already set
+      } finally {
+        pool.close([relayUrl])
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [publicKey, relayUrl])
+
+  return displayName
+}
+
 export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps) {
   const [ydoc] = useState(() => new Y.Doc())
   const [provider, setProvider] = useState<NostrSyncProvider | null>(null)
   const [peerCount, setPeerCount] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
   const providerRef = useRef<NostrSyncProvider | null>(null)
+
+  const displayName = useDisplayName(publicKey, relayUrl)
 
   // Initialize NostrSyncProvider
   useEffect(() => {
@@ -106,7 +157,9 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
             CollaborationCursor.configure({
               provider: provider as any, // TipTap expects a y-websocket-like provider
               user: {
-                name: publicKey?.slice(0, 8) || 'Anonymous',
+                // Use the resolved display name from kind:0 profile. Falls back
+                // to first-8-chars of the pubkey while the fetch is in flight.
+                name: displayName,
                 color: `#${publicKey?.slice(-6) || '000000'}`,
               },
             }),
@@ -114,7 +167,31 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
         : []),
     ],
     content: '',
-  }, [provider]) // Re-create editor when provider changes
+  // Deliberately NOT depending on displayName.
+  //
+  // The kind:0 profile fetch resolves 1-2s after mount, so including it here
+  // tore down and recreated the entire TipTap editor on every page load. The
+  // Yjs document survives that, but the user sees the editor flash and loses
+  // cursor position — a visible regression on every single load, in exchange
+  // for a name change that can be applied in place.
+  //
+  // The effect below pushes the resolved name into awareness instead.
+  }, [provider]) // Re-create editor only when the provider changes
+
+  // Publish the resolved display name without rebuilding the editor.
+  //
+  // CollaborationCursor reads the local user from the Yjs awareness state, so
+  // writing the field directly is exactly what recreating the extension would
+  // have achieved, minus the teardown.
+  useEffect(() => {
+    const awareness = (provider as { awareness?: { setLocalStateField: (k: string, v: unknown) => void } } | null)
+      ?.awareness
+    if (!awareness) return
+    awareness.setLocalStateField('user', {
+      name: displayName,
+      color: `#${publicKey?.slice(-6) || '000000'}`,
+    })
+  }, [provider, displayName, publicKey])
 
   return (
     <div className="editor-container">
@@ -195,109 +272,3 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
     </div>
   )
 }
-
-// Styles
-const style = document.createElement('style')
-style.textContent = `
-  .editor-container {
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .editor-toolbar {
-    display: flex;
-    /* Wrap on narrow screens. Measured at 375x667: the toolbar ran 62px past
-       the right edge, pushing the save button off-screen — this app has no
-       width breakpoints at all, only prefers-color-scheme. */
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding: 0.5rem;
-    border: 1px solid var(--cloistr-border);
-    border-radius: 0.375rem;
-    background-color: var(--cloistr-bg-hover);
-  }
-
-  .editor-toolbar button {
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--cloistr-border);
-    border-radius: 0.25rem;
-    background-color: var(--cloistr-bg-elevated);
-    color: var(--cloistr-text);
-    cursor: pointer;
-    font-size: 0.875rem;
-  }
-
-  .editor-toolbar button:hover {
-    background-color: var(--cloistr-bg-hover);
-  }
-
-  .editor-toolbar button.active {
-    background-color: var(--cloistr-info);
-    color: white;
-    border-color: var(--cloistr-info);
-  }
-
-  .ProseMirror {
-    min-height: 400px;
-    padding: 1rem;
-    border: 1px solid var(--cloistr-border);
-    border-radius: 0.375rem;
-    outline: none;
-  }
-
-  .ProseMirror:focus {
-    border-color: var(--cloistr-info);
-  }
-
-  .editor-status {
-    margin-top: 1rem;
-    padding: 0.5rem;
-    background-color: var(--cloistr-bg-hover);
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    color: var(--cloistr-text-muted);
-  }
-
-  .editor-status p {
-    margin: 0.25rem 0;
-  }
-
-  .editor-toolbar button.save-dirty {
-    background-color: var(--cloistr-info);
-    color: white;
-    border-color: var(--cloistr-info);
-  }
-
-  .editor-toolbar button.save-clean {
-    background-color: var(--cloistr-success);
-    color: white;
-    border-color: var(--cloistr-success);
-  }
-
-  .editor-toolbar button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* Mobile. This app previously had NO width breakpoints, so the fixed
-     800px-centred container and the non-wrapping toolbar simply overflowed a
-     phone — measured at 62px past the right edge. */
-  @media (max-width: 768px) {
-    .editor-container {
-      max-width: 100%;
-      padding: 0 0.5rem;
-    }
-
-    .editor-toolbar {
-      padding: 0.4rem;
-      row-gap: 0.4rem;
-    }
-
-    .editor-toolbar button {
-      /* Comfortable tap target; the default padding gives ~24px rows. */
-      min-height: 40px;
-    }
-  }
-`
-document.head.appendChild(style)

@@ -167,7 +167,31 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
         : []),
     ],
     content: '',
-  }, [provider, displayName]) // Re-create editor when provider or display name changes
+  // Deliberately NOT depending on displayName.
+  //
+  // The kind:0 profile fetch resolves 1-2s after mount, so including it here
+  // tore down and recreated the entire TipTap editor on every page load. The
+  // Yjs document survives that, but the user sees the editor flash and loses
+  // cursor position — a visible regression on every single load, in exchange
+  // for a name change that can be applied in place.
+  //
+  // The effect below pushes the resolved name into awareness instead.
+  }, [provider]) // Re-create editor only when the provider changes
+
+  // Publish the resolved display name without rebuilding the editor.
+  //
+  // CollaborationCursor reads the local user from the Yjs awareness state, so
+  // writing the field directly is exactly what recreating the extension would
+  // have achieved, minus the teardown.
+  useEffect(() => {
+    const awareness = (provider as { awareness?: { setLocalStateField: (k: string, v: unknown) => void } } | null)
+      ?.awareness
+    if (!awareness) return
+    awareness.setLocalStateField('user', {
+      name: displayName,
+      color: `#${publicKey?.slice(-6) || '000000'}`,
+    })
+  }, [provider, displayName, publicKey])
 
   return (
     <div className="editor-container">

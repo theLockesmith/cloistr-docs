@@ -218,6 +218,91 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+/* ---- Toolbar separator ---- */
+.toolbar-separator {
+  width: 1px;
+  height: 1.5rem;
+  background-color: var(--cloistr-border);
+  margin: 0 0.25rem;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ---- Link dialog ---- */
+.link-dialog {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--cloistr-border);
+  border-radius: 0.375rem;
+  background-color: var(--cloistr-bg-hover);
+}
+
+.link-dialog-input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--cloistr-border);
+  border-radius: 0.25rem;
+  background-color: var(--cloistr-bg-elevated);
+  color: var(--cloistr-text);
+  font-size: 0.875rem;
+}
+
+.link-dialog button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* ---- ProseMirror table styles ---- */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  overflow: hidden;
+  margin: 1rem 0;
+  table-layout: fixed;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid var(--cloistr-border);
+  padding: 0.375rem 0.625rem;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  min-width: 1em;
+}
+
+.ProseMirror table th {
+  font-weight: 600;
+  background-color: var(--cloistr-bg-hover);
+  text-align: left;
+}
+
+/* TipTap table selection highlight */
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--cloistr-info-rgb, 59, 130, 246), 0.15);
+  pointer-events: none;
+}
+
+/* Tab navigation through table cells */
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+
+/* ---- ProseMirror link styles ---- */
+.ProseMirror a {
+  color: var(--cloistr-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .editor-container {

@@ -145,24 +145,6 @@ input:focus, textarea:focus, select:focus {
   margin: 0 auto;
 }
 
-/* On small screens: panel takes full width instead of sidebar. */
-@media (max-width: 768px) {
-  .editor-with-panel .editor-main-row {
-    flex-direction: column;
-  }
-  .editor-right-panel {
-    width: 100% !important;
-    border-left: none !important;
-    border-top: 1px solid var(--cloistr-border);
-    max-height: 40dvh;
-    overflow-y: auto;
-  }
-  .editor-content-area {
-    padding: 0.5rem;
-    max-width: 100%;
-  }
-}
-
 /* ===========================================================================
    Top bar (title + save + sync)
    =========================================================================== */
@@ -557,6 +539,25 @@ input:focus, textarea:focus, select:focus {
   /* Panel does not exceed main viewport height. */
   max-height: calc(100dvh - 200px);
 }
+
+/* On small screens: panel takes full width instead of sidebar. */
+@media (max-width: 768px) {
+  .editor-with-panel .editor-main-row {
+    flex-direction: column;
+  }
+  .editor-right-panel {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--cloistr-border);
+    max-height: 40dvh;
+    overflow-y: auto;
+  }
+  .editor-content-area {
+    padding: 0.5rem;
+    max-width: 100%;
+  }
+}
+
 
 .panel-header {
   display: flex;

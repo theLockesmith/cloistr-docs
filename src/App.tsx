@@ -1,9 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Editor } from './components/Editor.js'
 import { DocumentLibrary } from './components/DocumentLibrary.js'
 import { useNostrAuth } from '@cloistr/auth'
 import { getServiceConfig } from '@cloistr/collab-common/config'
-import { Header, Footer, SharedAuthProvider, ToastProvider, LoginPrompt, ThemeProvider } from '@cloistr/ui/components'
+import {
+  Header,
+  Footer,
+  SharedAuthProvider,
+  ToastProvider,
+  LoginPrompt,
+  ThemeProvider,
+  SignerRecovery,
+  useSharedSession,
+} from '@cloistr/ui/components'
 import '@cloistr/ui/styles'
 
 // Service configuration from environment
@@ -33,10 +42,43 @@ function setDocIdInUrl(docId: string): void {
  */
 function AppContent() {
   const { authState, signer } = useNostrAuth()
+  const { isResolving } = useSharedSession()
 
   // Track the active document ID in state (mirrors the URL param).
-  // null = no document chosen → show library
+  // null = no document chosen -> show library
   const [documentId, setDocumentId] = useState<string | null>(() => getDocIdFromUrl())
+
+  // Auth has THREE states, not two. Treating every "not yet connected" frame as
+  // "needs login" is the root cause of the false-logout problem: the NIP-46
+  // handshake runs after SharedAuthProvider's silent SSO restore lifts its gate,
+  // so there is a window where isConnecting is true but isConnected is false,
+  // and a second window (for a shared-session restore) where isResolving is true.
+  // Both windows must stay silent so the user never sees the login screen during
+  // a valid session.
+  const isConnecting = !!authState.isConnecting || !!authState.isSwitching || isResolving
+
+  // Detect a connection attempt that STARTED (isConnecting went true) and then
+  // ENDED without succeeding (isConnected is still false). That is a signer or
+  // relay failure -- NOT an authentication failure -- and must be surfaced as
+  // SignerRecovery, never as a login screen.
+  //
+  // Pattern from cloistr-stash: track whether we were ever in connecting state
+  // via a ref, then detect the transition to "stopped connecting but not
+  // connected" and set connectFailed.
+  const [connectFailed, setConnectFailed] = useState(false)
+  const wasConnecting = useRef(false)
+
+  useEffect(() => {
+    if (isConnecting) {
+      wasConnecting.current = true
+      setConnectFailed(false)
+      return
+    }
+    if (wasConnecting.current && !authState.isConnected) {
+      wasConnecting.current = false
+      setConnectFailed(true)
+    }
+  }, [isConnecting, authState.isConnected])
 
   const handleOpenDocument = (docId: string) => {
     setDocIdInUrl(docId)
@@ -50,14 +92,10 @@ function AppContent() {
     setDocumentId(null)
   }
 
-  // Auth flash fix: while the NIP-46 signer is still establishing its
-  // connection (isConnecting), show a neutral loading state rather than the
-  // sign-in prompt. Without this, the prompt can render for several seconds
-  // while the nostrconnect handshake is in progress, then be replaced by the
-  // editor — a jarring false-logout flash confirmed by Playwright.
-  // Pattern matches the fix applied to cloistr-sheets.
   const showEditor = authState.isConnected && signer && authState.pubkey
-  const showLogin = !authState.isConnected && !authState.isConnecting
+  // Show login only when we are definitively not connected and no connection
+  // attempt is in progress and there was no failed attempt outstanding.
+  const showLogin = !authState.isConnected && !isConnecting && !connectFailed
 
   return (
     <div className="app">
@@ -80,18 +118,14 @@ function AppContent() {
               onOpen={handleOpenDocument}
             />
           )
-        ) : showLogin ? (
-          <LoginPrompt
-            title="Cloistr Docs"
-            subtitle="Collaborative document editing powered by Nostr"
-            callToAction="Sign in to create or edit documents."
-          />
-        ) : (
-          // isConnecting=true: the nostrconnect handshake is in progress.
-          // Show nothing — the SharedAuthProvider spinner is visible above us
-          // in the tree while gateRestore is active, and once that gate lifts
-          // this branch prevents the LoginPrompt from flashing before the
-          // CONNECTED action settles into React state.
+        ) : isConnecting ? (
+          // isConnecting=true: the nostrconnect handshake is in progress (or
+          // the shared session restore is running). Show nothing visible --
+          // the SharedAuthProvider spinner is visible in the tree while
+          // gateRestore is active, and once that gate lifts this branch
+          // prevents LoginPrompt from flashing before the CONNECTED action
+          // settles into React state. Pattern confirmed by Playwright on
+          // cloistr-sheets.
           <div
             style={{
               display: 'flex',
@@ -101,7 +135,41 @@ function AppContent() {
               color: 'var(--cloistr-text-muted)',
             }}
           >
-            <p>Connecting…</p>
+            <p>Connecting&hellip;</p>
+          </div>
+        ) : connectFailed ? (
+          // The connection attempt started but did not succeed -- relay
+          // unreachable, socket dropped, approval timed out. The session is
+          // still valid. Show the "uh-oh" panel that offers Retry and Go back,
+          // and NEVER a credential prompt.
+          <SignerRecovery
+            error={{ code: 'CONNECTION_FAILED' }}
+            retrying={isConnecting}
+            onRetry={() => {
+              setConnectFailed(false)
+              window.location.reload()
+            }}
+            onGoBack={() => setConnectFailed(false)}
+          />
+        ) : showLogin ? (
+          <LoginPrompt
+            title="Cloistr Docs"
+            subtitle="Collaborative document editing powered by Nostr"
+            callToAction="Sign in to create or edit documents."
+          />
+        ) : (
+          // Should not be reached in normal flow, but guard against any edge
+          // state where all three conditions above are false.
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '40vh',
+              color: 'var(--cloistr-text-muted)',
+            }}
+          >
+            <p>Connecting&hellip;</p>
           </div>
         )}
       </main>

@@ -1,8 +1,14 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Link from '@tiptap/extension-link'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import * as Y from 'yjs'
 import { SimplePool } from 'nostr-tools'
 import { NostrSyncProvider, useDocumentPersistence } from '@cloistr/collab-common'
@@ -52,7 +58,7 @@ function useDisplayName(publicKey: string, relayUrl: string): string {
           setDisplayName(name)
         }
       } catch {
-        // Profile unavailable — truncated pubkey fallback already set
+        // Profile unavailable -- truncated pubkey fallback already set
       } finally {
         pool.close([relayUrl])
       }
@@ -73,6 +79,10 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
   const [peerCount, setPeerCount] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
   const providerRef = useRef<NostrSyncProvider | null>(null)
+
+  // Link insertion dialog state
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const [linkHref, setLinkHref] = useState('')
 
   const displayName = useDisplayName(publicKey, relayUrl)
 
@@ -143,6 +153,20 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
       StarterKit.configure({
         history: false, // Disable history - Yjs handles undo/redo
       }),
+      // Underline: requires @tiptap/extension-underline (new dependency)
+      Underline,
+      // Link: requires @tiptap/extension-link (new dependency)
+      // openOnClick:false so that clicking a link does not navigate while
+      // editing; the user can follow it with Cmd/Ctrl+click.
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+      }),
+      // Tables: require @tiptap/extension-table and sub-packages (new deps)
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
       Collaboration.configure({
         document: ydoc,
       }),
@@ -172,7 +196,7 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
   // The kind:0 profile fetch resolves 1-2s after mount, so including it here
   // tore down and recreated the entire TipTap editor on every page load. The
   // Yjs document survives that, but the user sees the editor flash and loses
-  // cursor position — a visible regression on every single load, in exchange
+  // cursor position -- a visible regression on every single load, in exchange
   // for a name change that can be applied in place.
   //
   // The effect below pushes the resolved name into awareness instead.
@@ -193,21 +217,86 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
     })
   }, [provider, displayName, publicKey])
 
+  // Link dialog handlers
+
+  const openLinkDialog = useCallback(() => {
+    if (!editor) return
+    const existing = editor.getAttributes('link').href as string | undefined
+    setLinkHref(existing ?? '')
+    setLinkDialogOpen(true)
+  }, [editor])
+
+  const applyLink = useCallback(() => {
+    if (!editor) return
+    const url = linkHref.trim()
+    if (!url) {
+      editor.chain().focus().unsetLink().run()
+    } else {
+      const href = /^https?:\/\//i.test(url) ? url : `https://${url}`
+      editor.chain().focus().setLink({ href }).run()
+    }
+    setLinkDialogOpen(false)
+    setLinkHref('')
+  }, [editor, linkHref])
+
+  const cancelLink = useCallback(() => {
+    setLinkDialogOpen(false)
+    setLinkHref('')
+  }, [])
+
   return (
     <div className="editor-container">
       <div className="editor-toolbar">
+        {/* ---- Text formatting ---- */}
         <button
           onClick={() => editor?.chain().focus().toggleBold().run()}
           className={editor?.isActive('bold') ? 'active' : ''}
+          title="Bold (Ctrl+B)"
         >
           Bold
         </button>
         <button
           onClick={() => editor?.chain().focus().toggleItalic().run()}
           className={editor?.isActive('italic') ? 'active' : ''}
+          title="Italic (Ctrl+I)"
         >
           Italic
         </button>
+        {/* Strike: bundled in StarterKit (extension-strike) -- no new dependency */}
+        <button
+          onClick={() => editor?.chain().focus().toggleStrike().run()}
+          className={editor?.isActive('strike') ? 'active' : ''}
+          title="Strikethrough"
+        >
+          <s>S</s>
+        </button>
+        {/* Underline: @tiptap/extension-underline (new dependency) */}
+        <button
+          onClick={() => editor?.chain().focus().toggleUnderline().run()}
+          className={editor?.isActive('underline') ? 'active' : ''}
+          title="Underline (Ctrl+U)"
+        >
+          <u>U</u>
+        </button>
+        {/* Inline code: bundled in StarterKit (extension-code) -- no new dependency */}
+        <button
+          onClick={() => editor?.chain().focus().toggleCode().run()}
+          className={editor?.isActive('code') ? 'active' : ''}
+          title="Inline code"
+        >
+          {'</>'}
+        </button>
+        {/* Link: @tiptap/extension-link (new dependency) */}
+        <button
+          onClick={openLinkDialog}
+          className={editor?.isActive('link') ? 'active' : ''}
+          title="Insert link"
+        >
+          Link
+        </button>
+
+        {/* ---- Block formatting ---- */}
+        <span className="toolbar-separator" />
         <button
           onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
           className={editor?.isActive('heading', { level: 1 }) ? 'active' : ''}
@@ -238,6 +327,66 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
         >
           Quote
         </button>
+
+        {/* ---- Table controls ---- */}
+        {/* Table: @tiptap/extension-table + sub-packages (new dependencies) */}
+        <span className="toolbar-separator" />
+        <button
+          onClick={() =>
+            editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          }
+          title="Insert 3x3 table"
+        >
+          Table
+        </button>
+        {editor?.isActive('table') && (
+          <>
+            <button
+              onClick={() => editor.chain().focus().addColumnBefore().run()}
+              title="Insert column before"
+            >
+              +Col&#x2190;
+            </button>
+            <button
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              title="Insert column after"
+            >
+              +Col&#x2192;
+            </button>
+            <button
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              title="Delete column"
+            >
+              -Col
+            </button>
+            <button
+              onClick={() => editor.chain().focus().addRowBefore().run()}
+              title="Insert row before"
+            >
+              +Row&#x2191;
+            </button>
+            <button
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              title="Insert row after"
+            >
+              +Row&#x2193;
+            </button>
+            <button
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              title="Delete row"
+            >
+              -Row
+            </button>
+            <button
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              title="Delete table"
+            >
+              Del Table
+            </button>
+          </>
+        )}
+
+        {/* ---- Save ---- */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {persistenceState.dirty && (
             <span style={{ color: 'var(--cloistr-warning)', fontSize: '0.75rem' }}>Unsaved changes</span>
@@ -251,6 +400,36 @@ export function Editor({ documentId, signer, publicKey, relayUrl }: EditorProps)
           </button>
         </div>
       </div>
+
+      {/* Link insertion dialog -- sits between toolbar and editor surface */}
+      {linkDialogOpen && (
+        <div className="link-dialog" role="dialog" aria-label="Insert link">
+          <input
+            type="url"
+            className="link-dialog-input"
+            placeholder="https://example.com"
+            value={linkHref}
+            onChange={(e) => setLinkHref(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyLink()
+              if (e.key === 'Escape') cancelLink()
+            }}
+            autoFocus
+          />
+          <button onClick={applyLink}>Apply</button>
+          <button onClick={cancelLink}>Cancel</button>
+          {editor?.isActive('link') && (
+            <button
+              onClick={() => {
+                editor.chain().focus().unsetLink().run()
+                setLinkDialogOpen(false)
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      )}
 
       <EditorContent editor={editor} />
 

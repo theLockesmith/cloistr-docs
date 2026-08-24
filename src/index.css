@@ -118,6 +118,8 @@ input:focus, textarea:focus, select:focus {
   /* Fill the available height inside <main> so the editor doesn't look tiny. */
   min-height: calc(100dvh - 120px);
   padding: 0;
+  /* Needed to contain the signer-recovery overlay (position: absolute). */
+  position: relative;
 }
 
 /* Two-column layout when the right panel is visible. */
@@ -1342,4 +1344,34 @@ input:focus, textarea:focus, select:focus {
     max-width: 100%;
     margin: 1rem auto;
   }
+}
+
+/* ===========================================================================
+   Signer recovery overlay (in-editor)
+   Shown when a signing call (save, image upload) fails inside the editor.
+   Sits above the editor content but below the topbar so the user can still
+   see they are in the right document. Session-destroying affordances are
+   intentionally absent from .cloistr-signer-recovery itself (enforced by
+   @cloistr/ui's tests), so nothing here adds one.
+   =========================================================================== */
+
+.editor-signer-recovery-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cloistr-bg, rgba(255, 255, 255, 0.92));
+  backdrop-filter: blur(4px);
+  z-index: 200;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .editor-signer-recovery-overlay {
+    background: rgba(18, 18, 18, 0.92);
+  }
+}
+
+:root[data-theme="dark"] .editor-signer-recovery-overlay {
+  background: rgba(18, 18, 18, 0.92);
 }

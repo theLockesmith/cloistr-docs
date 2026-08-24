@@ -19,6 +19,7 @@ import { CommentMark } from '../extensions/CommentMark.js'
 import { editorJsonToDocxBlob, downloadDocx } from '../utils/docxExport.js'
 import { uploadToBlossom, BlossomUploadError } from '../utils/blossomUpload.js'
 import { MenuBar } from './MenuBar.js'
+import { withSignerRetry, SignerRecovery } from '@cloistr/ui'
 
 const BLOSSOM_URL = import.meta.env.VITE_BLOSSOM_URL || 'https://nostr.download'
 
@@ -144,6 +145,15 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
   const [shareOpen, setShareOpen] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
 
+  // ---- Signer recovery ----
+  // When a signing call fails in-editor (save or image upload), we surface
+  // SignerRecovery instead of silently swallowing the error or misdirecting
+  // the user to a login screen. signerFailedOp records which operation hit
+  // the error so the recovery panel's Retry button can re-invoke it.
+  const [signerError, setSignerError] = useState<unknown>(null)
+  const [signerFailedOp, setSignerFailedOp] = useState<'save' | 'upload' | null>(null)
+  const [signerRetrying, setSignerRetrying] = useState(false)
+
   // ---- Export state ----
   const [exporting, setExporting] = useState<'pdf' | 'docx' | null>(null)
 
@@ -170,13 +180,25 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
     { autoLoad: true, autoSaveInterval: 60000 },
   )
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    setSignerError(null)
     try {
-      await persistenceControls.save()
+      // withSignerRetry wraps the save call and re-tries on retryable relay
+      // failures (NO_RELAYS, CONNECTION_FAILED, DISCONNECTED). Note: the
+      // DocumentPersistence layer wraps signer errors in PersistenceError
+      // before rethrowing, which strips the error code. This means the retry
+      // policy treats persistence errors as terminal and does not retry them
+      // automatically. The practical benefit is that explicit signer denials
+      // (CANCELLED, REMOTE_ERROR) are also terminal and are never re-prompted.
+      // A future improvement is for DocumentPersistence to propagate the
+      // original error code.
+      await withSignerRetry(() => persistenceControls.save())
     } catch (error) {
       console.error('[Editor] Save failed:', error)
+      setSignerError(error)
+      setSignerFailedOp('save')
     }
-  }
+  }, [persistenceControls])
 
   // ---- TipTap editor ----
   const editor = useEditor({
@@ -267,13 +289,26 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
     if (imageFile) {
       setImageUploading(true)
       setImageError(null)
+      setSignerError(null)
       try {
-        const url = await uploadToBlossom(imageFile, BLOSSOM_URL, signer)
+        // withSignerRetry retries on retryable relay failures (NO_RELAYS,
+        // CONNECTION_FAILED, DISCONNECTED). BlossomUploadError is not a signer
+        // error and is treated as terminal immediately. Signer denials
+        // (CANCELLED, REMOTE_ERROR) are also terminal -- not retried.
+        const url = await withSignerRetry(() => uploadToBlossom(imageFile, BLOSSOM_URL, signer))
         editor.chain().focus().setImage({ src: url }).run()
         setImageDialogOpen(false)
       } catch (err) {
-        const msg = err instanceof BlossomUploadError ? err.message : 'Upload failed'
-        setImageError(msg)
+        if (err instanceof BlossomUploadError) {
+          // Server-side failure (HTTP error from Blossom) -- show inline.
+          setImageError(err.message)
+        } else {
+          // Signer failure -- close the dialog and show recovery panel so the
+          // user is not staring at a frozen image dialog with no explanation.
+          setImageDialogOpen(false)
+          setSignerError(err)
+          setSignerFailedOp('upload')
+        }
       } finally {
         setImageUploading(false)
       }
@@ -442,9 +477,51 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
 
+  // ---- Signer recovery retry handler ----
+  // Invoked by the SignerRecovery panel's Retry button. Calls the operation
+  // that originally failed so the user stays in context. Session state is
+  // never touched here or anywhere in this handler.
+  const handleSignerRetry = useCallback(async () => {
+    setSignerRetrying(true)
+    try {
+      if (signerFailedOp === 'save') {
+        await handleSave()
+      } else if (signerFailedOp === 'upload') {
+        // Re-open the image dialog so the user can re-submit. We can't replay
+        // the upload without the file reference, and the dialog was closed on
+        // failure. This is a deliberate user action, not a silent retry.
+        setSignerError(null)
+        setSignerFailedOp(null)
+        setImageDialogOpen(true)
+      }
+    } finally {
+      setSignerRetrying(false)
+    }
+  }, [signerFailedOp, handleSave])
+
   // ---- Render ----
   return (
     <div className={`editor-container ${rightPanel ? 'editor-with-panel' : ''}`}>
+
+      {/* ======== Signer recovery overlay ======== */}
+      {/* When a signing call fails inside the editor (save or image upload), we
+          show this panel instead of silently dropping the error or redirecting
+          the user to a login screen. The session is intact; this is a relay or
+          signer reachability problem, not an authentication problem. */}
+      {signerError !== null && (
+        <div className="editor-signer-recovery-overlay" role="dialog" aria-modal="true" aria-label="Signing error">
+          <SignerRecovery
+            error={signerError}
+            retrying={signerRetrying}
+            onRetry={handleSignerRetry}
+            onGoBack={() => {
+              setSignerError(null)
+              setSignerFailedOp(null)
+              setSignerRetrying(false)
+            }}
+          />
+        </div>
+      )}
 
       {/* ======== Compact top bar: back + title + status ======== */}
       <div className="editor-topbar" aria-label="Document toolbar">

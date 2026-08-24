@@ -43,6 +43,13 @@ function AppContent() {
     setDocumentId(docId)
   }
 
+  const handleBack = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('docId')
+    window.history.pushState({}, '', url.toString())
+    setDocumentId(null)
+  }
+
   // Auth flash fix: while the NIP-46 signer is still establishing its
   // connection (isConnecting), show a neutral loading state rather than the
   // sign-in prompt. Without this, the prompt can render for several seconds
@@ -64,6 +71,7 @@ function AppContent() {
               signer={signer}
               publicKey={authState.pubkey!}
               relayUrl={config.relayUrl}
+              onBack={handleBack}
             />
           ) : (
             <DocumentLibrary

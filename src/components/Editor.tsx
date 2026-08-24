@@ -18,6 +18,7 @@ import { SearchAndReplace, searchPluginKey } from '../extensions/SearchAndReplac
 import { CommentMark } from '../extensions/CommentMark.js'
 import { editorJsonToDocxBlob, downloadDocx } from '../utils/docxExport.js'
 import { uploadToBlossom, BlossomUploadError } from '../utils/blossomUpload.js'
+import { MenuBar } from './MenuBar.js'
 
 const BLOSSOM_URL = import.meta.env.VITE_BLOSSOM_URL || 'https://nostr.download'
 
@@ -432,6 +433,10 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
         e.preventDefault()
         void handleSave()
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        openLinkDialog()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -474,6 +479,22 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
           {persistenceState.saving ? 'Saving…' : persistenceState.dirty ? 'Save' : 'Saved'}
         </button>
       </div>
+
+      {/* ======== Menu bar ======== */}
+      <MenuBar
+        editor={editor}
+        {...(onBack ? { onNewDocument: onBack } : {})}
+        onShare={() => setShareOpen(true)}
+        onVersionHistory={() => setRightPanel('versions')}
+        onExportPdf={exportPdf}
+        onExportDocx={exportDocx}
+        onFindReplace={() => setShowFindReplace((v) => !v)}
+        onInsertImage={openImageDialog}
+        onInsertLink={openLinkDialog}
+        onInsertComment={startAddComment}
+        onSave={handleSave}
+        exporting={exporting}
+      />
 
       {/* ======== Formatting toolbar ======== */}
       <div className="editor-toolbar" role="toolbar" aria-label="Formatting">

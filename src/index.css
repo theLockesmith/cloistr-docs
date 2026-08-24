@@ -993,11 +993,296 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ===========================================================================
+   Menu bar (desktop horizontal + mobile accordion)
+   =========================================================================== */
+
+/* Container visible to both variants — sits between topbar and toolbar. */
+.menubar {
+  position: relative;
+  border-bottom: 1px solid var(--cloistr-border);
+  background-color: var(--cloistr-bg-elevated);
+  flex-shrink: 0;
+  z-index: 100; /* dropdowns float above editor content */
+}
+
+/* --- Desktop: horizontal menubar --- */
+.menubar-desktop {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0 0.25rem;
+  /* Hidden on mobile */
+}
+.menubar-mobile {
+  display: none;
+}
+
+/* Top-level trigger buttons */
+.menubar-item-wrapper {
+  position: relative;
+}
+
+.menubar-trigger {
+  /* Override global button resets */
+  min-height: 0;
+  min-width: 0;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.2rem;
+  background: transparent;
+  color: var(--cloistr-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menubar-trigger:hover,
+.menubar-trigger--open {
+  background-color: var(--cloistr-bg-hover);
+}
+.menubar-trigger:focus-visible {
+  outline: 2px solid var(--cloistr-info);
+  outline-offset: -2px;
+}
+
+/* Dropdown panel */
+.menubar-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background-color: var(--cloistr-bg-elevated);
+  border: 1px solid var(--cloistr-border);
+  border-radius: 0.3rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 0.25rem 0;
+  z-index: 200;
+  /* Prevent dropdown clipping at viewport right edge */
+  max-width: min(340px, calc(100vw - 1rem));
+}
+
+/* Separator inside dropdown */
+.menubar-sep {
+  height: 1px;
+  background-color: var(--cloistr-border);
+  margin: 0.25rem 0;
+}
+
+/* Menu entry buttons */
+.menubar-entry {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 400;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cloistr-text);
+  cursor: pointer;
+  text-align: left;
+  gap: 0.3rem;
+}
+.menubar-entry:hover:not(:disabled) {
+  background-color: var(--cloistr-bg-hover);
+}
+.menubar-entry:focus {
+  outline: 2px solid var(--cloistr-info);
+  outline-offset: -2px;
+}
+.menubar-entry--disabled,
+.menubar-entry:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+.menubar-entry--active {
+  /* no special background — checkmark already signals active state */
+}
+
+/* Checkmark column (fixed width keeps labels aligned) */
+.menubar-entry-check {
+  width: 1rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--cloistr-primary);
+}
+
+.menubar-entry-label {
+  flex: 1 1 auto;
+}
+
+/* Keyboard shortcut column */
+.menubar-entry-shortcut {
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  color: var(--cloistr-text-muted);
+  margin-left: 1.5rem;
+  white-space: nowrap;
+}
+
+/* "soon" badge for not-yet-implemented disabled items */
+.menubar-entry-soon {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--cloistr-text-muted);
+  border: 1px solid var(--cloistr-border);
+  border-radius: 0.2rem;
+  padding: 0 0.25rem;
+}
+
+/* --- Word-count table (inside the shared modal-dialog) --- */
+.word-count-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0 0.5rem;
+  font-size: 0.9rem;
+}
+.word-count-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--cloistr-border);
+}
+.word-count-table tr:last-child td {
+  border-bottom: none;
+}
+.word-count-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* --- Mobile: hamburger + accordion panel --- */
+
+@media (max-width: 640px) {
+  .menubar-desktop {
+    display: none;
+  }
+  .menubar-mobile {
+    display: block;
+  }
+
+  .menubar-hamburger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 0;
+    min-width: 0;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--cloistr-text);
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+  }
+  .menubar-hamburger:focus-visible {
+    outline: 2px solid var(--cloistr-info);
+    outline-offset: -2px;
+  }
+
+  /* Three-line hamburger icon */
+  .hamburger-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 18px;
+    flex-shrink: 0;
+  }
+  .hamburger-lines span {
+    display: block;
+    height: 2px;
+    background-color: var(--cloistr-text);
+    border-radius: 1px;
+  }
+
+  /* Full-width accordion panel */
+  .menubar-mobile-panel {
+    border-top: 1px solid var(--cloistr-border);
+    background-color: var(--cloistr-bg-elevated);
+  }
+
+  /* Section trigger (e.g. "File", "Edit") */
+  .mobile-section-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 0;
+    min-width: 0;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: none;
+    border-bottom: 1px solid var(--cloistr-border);
+    border-radius: 0;
+    background: var(--cloistr-bg-elevated);
+    color: var(--cloistr-text);
+    cursor: pointer;
+    text-align: left;
+  }
+  .mobile-section-trigger:hover,
+  .mobile-section-trigger--open {
+    background-color: var(--cloistr-bg-hover);
+  }
+
+  .mobile-chevron {
+    font-size: 0.65rem;
+    color: var(--cloistr-text-muted);
+  }
+
+  /* Items inside an expanded section */
+  .mobile-section-items {
+    background-color: var(--cloistr-bg);
+    border-bottom: 1px solid var(--cloistr-border);
+  }
+
+  /* Individual item button in mobile accordion */
+  .mobile-entry {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    min-width: 0;
+    padding: 0.4rem 1.5rem;
+    font-size: 0.82rem;
+    font-weight: 400;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--cloistr-text);
+    cursor: pointer;
+    text-align: left;
+    gap: 0.3rem;
+    border-bottom: 1px solid var(--cloistr-border);
+  }
+  .mobile-entry:last-child {
+    border-bottom: none;
+  }
+  .mobile-entry:hover:not(:disabled) {
+    background-color: var(--cloistr-bg-hover);
+  }
+  .mobile-entry:focus-visible {
+    outline: 2px solid var(--cloistr-info);
+    outline-offset: -2px;
+  }
+}
+
+/* ===========================================================================
    Print styles (PDF export)
    =========================================================================== */
 
 @media print {
   /* Hide all chrome — only the document content should print. */
+  .menubar,
   .editor-topbar,
   .editor-toolbar,
   .find-replace-panel,

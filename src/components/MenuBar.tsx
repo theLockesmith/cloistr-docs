@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor as TipTapEditor } from '@tiptap/react'
+import type { MenuSection, MenuEntry } from '@cloistr/ui/components'
 
 // ---------------------------------------------------------------------------
 // Prop types
@@ -41,6 +42,14 @@ export interface MenuBarProps {
   onInsertComment: () => void
   onSave: () => void
   exporting: 'pdf' | 'docx' | null
+  /**
+   * Opens the word-count modal. Lifted out of MenuBar so the SAME callback
+   * reaches the shell's mobile drawer. When it lived as MenuBar-local state the
+   * mobile menu could only be handed a no-op, which would have made "Word
+   * count" an enabled item that does nothing — the exact shape the navigation
+   * model forbids, and worse than omitting it.
+   */
+  onWordCount: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -81,9 +90,9 @@ const sep = (id: string): SeparatorItem => ({ id, separator: true })
 // Build menu structure
 // ---------------------------------------------------------------------------
 
-function buildMenus(
+export function buildMenus(
   props: MenuBarProps,
-  setWordCountOpen: (v: boolean) => void,
+  onWordCount: () => void,
 ): Menu[] {
   const {
     editor,
@@ -339,7 +348,7 @@ function buildMenus(
         {
           id: 'word-count',
           label: 'Word count',
-          action: editor ? () => setWordCountOpen(true) : null,
+          action: editor ? onWordCount : null,
         },
         sep('sep-spell'),
         {
@@ -353,11 +362,37 @@ function buildMenus(
   ]
 }
 
+/**
+ * Convert docs' internal menu model to the shared @cloistr/ui model.
+ *
+ * The shell renders the SAME data as a horizontal bar on desktop and as drawer
+ * sections on mobile, which is what makes docs' second, mobile-only menu
+ * implementation unnecessary. `action: null` means "deliberately disabled" and
+ * maps to an absent onSelect plus the tooltip as the reason, so a disabled item
+ * still explains itself instead of being an enabled no-op.
+ */
+export function toMenuSections(menus: Menu[]): MenuSection[] {
+  return menus.map((menu) => ({
+    label: menu.label,
+    items: menu.items.map((item): MenuEntry => {
+      if (isSep(item)) return { separator: true }
+      const a = item as ActionItem
+      return {
+        label: a.label,
+        ...(a.action ? { onSelect: a.action } : {}),
+        ...(a.shortcut ? { shortcut: a.shortcut } : {}),
+        ...(a.tooltip ? { disabledReason: a.tooltip } : {}),
+        ...(a.active === undefined ? {} : { active: a.active }),
+      }
+    }),
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // Word-count modal
 // ---------------------------------------------------------------------------
 
-function WordCountModal({
+export function WordCountModal({
   editor,
   onClose,
 }: {
@@ -420,13 +455,10 @@ function WordCountModal({
 
 export function MenuBar(props: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [mobileExpandedId, setMobileExpandedId] = useState<string | null>(null)
-  const [wordCountOpen, setWordCountOpen] = useState(false)
 
   // Rebuild the menu structure on every render so closures stay fresh
   // (exporting state, editor marks, undo stack, etc. change frequently).
-  const menus = buildMenus(props, setWordCountOpen)
+  const menus = buildMenus(props, props.onWordCount)
   const menuIds = menus.map((m) => m.id)
 
   const menubarRef = useRef<HTMLDivElement>(null)
@@ -434,16 +466,15 @@ export function MenuBar(props: MenuBarProps) {
 
   // ---- Close on outside click ----
   useEffect(() => {
-    if (!openMenuId && !mobileOpen) return
+    if (!openMenuId) return
     const handler = (e: MouseEvent) => {
       if (!menubarRef.current?.contains(e.target as Node)) {
         setOpenMenuId(null)
-        setMobileOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [openMenuId, mobileOpen])
+  }, [openMenuId])
 
   // ---- Escape closes open desktop menu ----
   useEffect(() => {
@@ -488,7 +519,6 @@ export function MenuBar(props: MenuBarProps) {
     if (!item.action) return
     item.action()
     setOpenMenuId(null)
-    setMobileOpen(false)
   }, [])
 
   // ---- Trigger keyboard handler ----
@@ -689,101 +719,8 @@ export function MenuBar(props: MenuBarProps) {
           ))}
         </div>
 
-        {/* ==== Mobile hamburger ==== */}
-        <div className="menubar-mobile" aria-label="Application menu">
-          <button
-            className="menubar-hamburger"
-            aria-expanded={mobileOpen}
-            aria-controls="menubar-mobile-panel"
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-            onClick={() => setMobileOpen((v) => !v)}
-          >
-            <span className="hamburger-lines" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-            Menu
-          </button>
-
-          {mobileOpen && (
-            <div
-              id="menubar-mobile-panel"
-              className="menubar-mobile-panel"
-              role="navigation"
-              aria-label="Application menus"
-            >
-              {menus.map((menu) => (
-                <div key={menu.id} className="mobile-section">
-                  <button
-                    className={`mobile-section-trigger${mobileExpandedId === menu.id ? ' mobile-section-trigger--open' : ''}`}
-                    aria-expanded={mobileExpandedId === menu.id}
-                    onClick={() =>
-                      setMobileExpandedId(
-                        mobileExpandedId === menu.id ? null : menu.id,
-                      )
-                    }
-                  >
-                    {menu.label}
-                    <span className="mobile-chevron" aria-hidden="true">
-                      {mobileExpandedId === menu.id ? '▲' : '▼'}
-                    </span>
-                  </button>
-
-                  {mobileExpandedId === menu.id && (
-                    <div className="mobile-section-items">
-                      {menu.items.map((item) => {
-                        if (isSep(item)) {
-                          return (
-                            <div
-                              key={item.id}
-                              className="menubar-sep"
-                              role="separator"
-                            />
-                          )
-                        }
-                        const disabled = item.action === null
-                        return (
-                          <button
-                            key={item.id}
-                            className={[
-                              'mobile-entry',
-                              disabled ? 'menubar-entry--disabled' : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                            disabled={disabled}
-                            aria-disabled={disabled}
-                            title={item.tooltip}
-                            onClick={() => !disabled && activateItem(item)}
-                          >
-                            <span className="menubar-entry-check" aria-hidden="true">
-                              {item.active ? '✓' : ''}
-                            </span>
-                            <span className="menubar-entry-label">{item.label}</span>
-                            {item.shortcut && (
-                              <span className="menubar-entry-shortcut">
-                                {item.shortcut}
-                              </span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
-      {wordCountOpen && props.editor && (
-        <WordCountModal
-          editor={props.editor}
-          onClose={() => setWordCountOpen(false)}
-        />
-      )}
     </>
   )
 }

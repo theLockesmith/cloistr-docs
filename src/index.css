@@ -1015,9 +1015,6 @@ input:focus, textarea:focus, select:focus {
   padding: 0 0.25rem;
   /* Hidden on mobile */
 }
-.menubar-mobile {
-  display: none;
-}
 
 /* Top-level trigger buttons */
 .menubar-item-wrapper {
@@ -1159,122 +1156,28 @@ input:focus, textarea:focus, select:focus {
   font-weight: 500;
 }
 
-/* --- Mobile: hamburger + accordion panel --- */
+/* --- Mobile: the shared AppShell hamburger owns every app command --- */
 
-@media (max-width: 640px) {
+/* docs used to ship its own `.menubar-hamburger` inside `.menubar-mobile`,
+   which put THREE controls that all read as "menu" on one phone screen: the
+   9-dot apps switcher, the shared toggle, and docs' own. All of that markup is
+   gone; @cloistr/ui's AppShell renders the single hamburger below 768px.
+
+   The breakpoint is 768px to match APPSHELL_BREAKPOINT. It was 640px, which
+   would have left 641-767px showing docs' bar AND the shell's hamburger
+   together — a new double-menu in the range nobody looks at. */
+@media (max-width: 767px) {
   .menubar-desktop {
     display: none;
   }
-  .menubar-mobile {
-    display: block;
-  }
 
-  .menubar-hamburger {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 0;
-    min-width: 0;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.82rem;
-    font-weight: 500;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    color: var(--cloistr-text);
-    cursor: pointer;
-    width: 100%;
-    text-align: left;
-  }
-  .menubar-hamburger:focus-visible {
-    outline: 2px solid var(--cloistr-info);
-    outline-offset: -2px;
-  }
-
-  /* Three-line hamburger icon */
-  .hamburger-lines {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    width: 18px;
-    flex-shrink: 0;
-  }
-  .hamburger-lines span {
-    display: block;
-    height: 2px;
-    background-color: var(--cloistr-text);
-    border-radius: 1px;
-  }
-
-  /* Full-width accordion panel */
-  .menubar-mobile-panel {
-    border-top: 1px solid var(--cloistr-border);
-    background-color: var(--cloistr-bg-elevated);
-  }
-
-  /* Section trigger (e.g. "File", "Edit") */
-  .mobile-section-trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    min-height: 0;
-    min-width: 0;
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    border: none;
-    border-bottom: 1px solid var(--cloistr-border);
-    border-radius: 0;
-    background: var(--cloistr-bg-elevated);
-    color: var(--cloistr-text);
-    cursor: pointer;
-    text-align: left;
-  }
-  .mobile-section-trigger:hover,
-  .mobile-section-trigger--open {
-    background-color: var(--cloistr-bg-hover);
-  }
-
-  .mobile-chevron {
-    font-size: 0.65rem;
-    color: var(--cloistr-text-muted);
-  }
-
-  /* Items inside an expanded section */
-  .mobile-section-items {
-    background-color: var(--cloistr-bg);
-    border-bottom: 1px solid var(--cloistr-border);
-  }
-
-  /* Individual item button in mobile accordion */
-  .mobile-entry {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-height: 44px;
-    min-width: 0;
-    padding: 0.4rem 1.5rem;
-    font-size: 0.82rem;
-    font-weight: 400;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    color: var(--cloistr-text);
-    cursor: pointer;
-    text-align: left;
-    gap: 0.3rem;
-    border-bottom: 1px solid var(--cloistr-border);
-  }
-  .mobile-entry:last-child {
-    border-bottom: none;
-  }
-  .mobile-entry:hover:not(:disabled) {
-    background-color: var(--cloistr-bg-hover);
-  }
-  .mobile-entry:focus-visible {
-    outline: 2px solid var(--cloistr-info);
-    outline-offset: -2px;
+  /* The formatting toolbar is 17 command buttons. On a 390px screen they
+     wrapped to three rows above the document. Every one of them is reachable
+     from the Format/Insert menus inside the drawer, so hiding it here loses no
+     capability — it stops the app rendering its whole command set expanded
+     beside a collapse control. */
+  .editor-toolbar {
+    display: none;
   }
 }
 

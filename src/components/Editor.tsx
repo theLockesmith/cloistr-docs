@@ -18,7 +18,8 @@ import { SearchAndReplace, searchPluginKey } from '../extensions/SearchAndReplac
 import { CommentMark } from '../extensions/CommentMark.js'
 import { editorJsonToDocxBlob, downloadDocx } from '../utils/docxExport.js'
 import { uploadToBlossom, BlossomUploadError } from '../utils/blossomUpload.js'
-import { MenuBar } from './MenuBar.js'
+import { MenuBar, WordCountModal, buildMenus, toMenuSections } from './MenuBar.js'
+import { AppShell, AppShellToggle } from '@cloistr/ui/components'
 import { withSignerRetry, SignerRecovery } from '@cloistr/ui'
 
 const BLOSSOM_URL = import.meta.env.VITE_BLOSSOM_URL || 'https://nostr.download'
@@ -500,6 +501,32 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
   }, [signerFailedOp, handleSave])
 
   // ---- Render ----
+  const [wordCountOpen, setWordCountOpen] = useState(false)
+
+  // One definition of the menus, rendered two ways: docs' own bar on desktop,
+  // and the shell's drawer on mobile. This is why AppShell takes menu DATA
+  // rather than JSX — passing a rendered bar is what forced docs to build a
+  // second, mobile-only menu in the first place.
+  const menuBarProps = {
+    editor,
+    ...(onBack ? { onNewDocument: onBack } : {}),
+    onShare: () => setShareOpen(true),
+    onVersionHistory: () => setRightPanel('versions' as const),
+    onExportPdf: exportPdf,
+    onExportDocx: exportDocx,
+    onFindReplace: () => setShowFindReplace((v: boolean) => !v),
+    onInsertImage: openImageDialog,
+    onInsertLink: openLinkDialog,
+    onInsertComment: startAddComment,
+    onSave: handleSave,
+    exporting,
+    onWordCount: () => setWordCountOpen(true),
+  }
+
+  const menuSections = toMenuSections(
+    buildMenus(menuBarProps, menuBarProps.onWordCount),
+  )
+
   return (
     <div className={`editor-container ${rightPanel ? 'editor-with-panel' : ''}`}>
 
@@ -557,21 +584,29 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
         </button>
       </div>
 
-      {/* ======== Menu bar ======== */}
-      <MenuBar
-        editor={editor}
-        {...(onBack ? { onNewDocument: onBack } : {})}
-        onShare={() => setShareOpen(true)}
-        onVersionHistory={() => setRightPanel('versions')}
-        onExportPdf={exportPdf}
-        onExportDocx={exportDocx}
-        onFindReplace={() => setShowFindReplace((v) => !v)}
-        onInsertImage={openImageDialog}
-        onInsertLink={openLinkDialog}
-        onInsertComment={startAddComment}
-        onSave={handleSave}
-        exporting={exporting}
-      />
+      {/* ======== Menu bar ========
+          Desktop renders docs' own bar. Mobile renders NOTHING here: the single
+          shared hamburger below owns every app command at that size. docs used
+          to ship its own `.menubar-hamburger` inside `.menubar-mobile`, which
+          put three controls that all read as "menu" on one phone screen — the
+          9-dot apps switcher, the shared toggle, and docs' own. */}
+      <MenuBar {...menuBarProps} />
+
+      {/* The ONE mobile nav affordance. AppShell renders it only below 768px
+          and only because docs has commands to put in it; on desktop it renders
+          nothing at all, so the bar above is not duplicated. */}
+      {/* toggleInHeader: AppShellToggle portals into the shared Header's
+          [data-appshell-slot], so the ONE control sits INSIDE <header> as the
+          model requires. Without this AppShell rendered its trigger as its own
+          child — below the header, the same position as docs' old
+          .menubar-hamburger. The pre-merge gate caught exactly that. */}
+      <AppShell serviceId="docs" menu={menuSections} toggleInHeader>
+        <AppShellToggle />
+      </AppShell>
+
+      {wordCountOpen && editor && (
+        <WordCountModal editor={editor} onClose={() => setWordCountOpen(false)} />
+      )}
 
       {/* ======== Formatting toolbar ======== */}
       <div className="editor-toolbar" role="toolbar" aria-label="Formatting">

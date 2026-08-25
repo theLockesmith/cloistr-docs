@@ -19,7 +19,7 @@ import { CommentMark } from '../extensions/CommentMark.js'
 import { editorJsonToDocxBlob, downloadDocx } from '../utils/docxExport.js'
 import { uploadToBlossom, BlossomUploadError } from '../utils/blossomUpload.js'
 import { MenuBar, WordCountModal, buildMenus, toMenuSections } from './MenuBar.js'
-import { AppShell } from '@cloistr/ui/components'
+import { AppShell, AppShellToggle } from '@cloistr/ui/components'
 import { withSignerRetry, SignerRecovery } from '@cloistr/ui'
 
 const BLOSSOM_URL = import.meta.env.VITE_BLOSSOM_URL || 'https://nostr.download'
@@ -595,7 +595,14 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
       {/* The ONE mobile nav affordance. AppShell renders it only below 768px
           and only because docs has commands to put in it; on desktop it renders
           nothing at all, so the bar above is not duplicated. */}
-      <AppShell serviceId="docs" menu={menuSections} />
+      {/* toggleInHeader: AppShellToggle portals into the shared Header's
+          [data-appshell-slot], so the ONE control sits INSIDE <header> as the
+          model requires. Without this AppShell rendered its trigger as its own
+          child — below the header, the same position as docs' old
+          .menubar-hamburger. The pre-merge gate caught exactly that. */}
+      <AppShell serviceId="docs" menu={menuSections} toggleInHeader>
+        <AppShellToggle />
+      </AppShell>
 
       {wordCountOpen && editor && (
         <WordCountModal editor={editor} onClose={() => setWordCountOpen(false)} />

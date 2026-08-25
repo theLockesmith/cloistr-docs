@@ -13,7 +13,7 @@
   "dependencies": {
     "@cloistr/auth": "^0.6.0",
     "@cloistr/collab-common": "^0.2.14",
-    "@cloistr/ui": "^0.30.0",
+    "@cloistr/ui": "^0.33.0",
     "@tiptap/extension-collaboration": "^2.27.2",
     "@tiptap/extension-collaboration-cursor": "^2.26.2",
     "@tiptap/extension-image": "^2.27.2",

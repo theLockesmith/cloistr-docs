@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor as TipTapEditor } from '@tiptap/react'
 import type { MenuSection, MenuEntry } from '@cloistr/ui/components'
+import { useIsMobile } from '@cloistr/ui/components'
 
 // ---------------------------------------------------------------------------
 // Prop types
@@ -458,6 +459,12 @@ export function MenuBar(props: MenuBarProps) {
 
   // Rebuild the menu structure on every render so closures stay fresh
   // (exporting state, editor marks, undo stack, etc. change frequently).
+  // Do not RENDER the desktop bar at mobile; hiding it with CSS leaves all six
+  // triggers in the DOM, which is both a real a11y problem (they stay
+  // focusable and screen-reader visible) and invisible to any structural test,
+  // since jsdom does not apply stylesheet media queries. AppShell owns the
+  // mobile presentation of this same data.
+  const isMobile = useIsMobile()
   const menus = buildMenus(props, props.onWordCount)
   const menuIds = menus.map((m) => m.id)
 
@@ -634,6 +641,11 @@ export function MenuBar(props: MenuBarProps) {
   )
 
   // ---- Render ----
+  // AppShell renders this same menu data as a drawer below 768px. Rendering
+  // the bar too would put the whole command set on screen beside the collapse
+  // control, which is the bug this migration removed.
+  if (isMobile) return null
+
   return (
     <>
       <div ref={menubarRef} className="menubar" aria-label="Menu bar">

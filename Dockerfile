@@ -11,6 +11,7 @@ ARG NPM_TOKEN
 RUN echo "//git.coldforge.xyz/api/v4/projects/44/packages/npm/:_authToken=${NPM_TOKEN}" >> .npmrc
 
 # Install dependencies
+RUN npm install -g npm@11 --quiet
 RUN npm ci
 
 # Copy source (including linked collab-common)

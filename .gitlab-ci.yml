@@ -1,4 +1,5 @@
 stages:
+  - test
   - build
   - smoke
 
@@ -9,6 +10,41 @@ include:
   - project: 'coldforge/ci-templates'
     ref: main
     file: '/templates/frontend-smoke.yml'
+  - project: 'coldforge/ci-templates'
+    ref: main
+    file: '/templates/cloistr-rules.yml'
+
+# Run the vitest suite. Until now this repo had no test stage at all, so
+# `npm test` (vitest, 4 files, 47 tests under src/__tests__/ and
+# src/components/) had never executed in CI once.
+#
+# `extends: .cloistr-rules` is REQUIRED, not decorative. Without it this job
+# is silently dropped from every merge-request pipeline: an in-repo job with
+# no `rules:` falls back to `only: [branches, tags]`, and a merge-request
+# pipeline is neither. No error, no skipped badge.
+#
+# Image and install flags mirror this repo's own Dockerfile exactly
+# (node:22.23.2-alpine, `npm install -g npm@11 --quiet` then plain `npm ci`,
+# no --legacy-peer-deps). Verified in that exact image: npm 11.19.1, 4/4
+# files and 47/47 tests pass. Do not "simplify" this to node:22 + CI's
+# default npm 10 + npm ci --legacy-peer-deps -- that pairing is NOT what
+# this lockfile was built against.
+#
+# The Dockerfile also appends an NPM_TOKEN-derived _authToken line to
+# .npmrc before installing, for the private @cloistr registry. Verified
+# locally that `npm ci` resolves the @cloistr/* packages here without any
+# token (the packages are public-readable), but the token line is added
+# anyway to mirror the Dockerfile's own behavior verbatim and to keep
+# working if that registry's visibility ever changes.
+test:frontend:
+  extends: .cloistr-rules
+  stage: test
+  image: node:22.23.2-alpine
+  script:
+    - echo "//git.coldforge.xyz/api/v4/projects/44/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> .npmrc
+    - npm install -g npm@11 --quiet
+    - npm ci
+    - npm test
 
 build:
   extends: .kaniko-build

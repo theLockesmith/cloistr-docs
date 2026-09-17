@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cloistr/auth": "^0.7.0",
+    "@cloistr/auth": "^1.0.1",
     "@cloistr/collab-common": "^0.2.16",
     "@cloistr/ui": "^0.42.0",
     "@tiptap/extension-collaboration": "^2.27.3",

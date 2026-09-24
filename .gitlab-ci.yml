@@ -39,7 +39,7 @@ include:
 test:frontend:
   extends: .cloistr-rules
   stage: test
-  image: node:22.23.2-alpine
+  image: node:22.23.3-alpine
   script:
     - echo "//git.coldforge.xyz/api/v4/projects/44/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> .npmrc
     - npm install -g npm@11 --quiet

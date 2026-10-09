@@ -37,6 +37,13 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # there is no entrypoint override and no script of ours to maintain.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
+# Trailing slashes are stripped from the CLOISTR_*_URL values before the
+# template step, so a slash in a deployment's environment cannot render a
+# doubled one. The base image sources *.envsh in name order; 20- is the
+# template step. The file is committed executable: the entrypoint skips it
+# otherwise.
+COPY 18-cloistr-trim-url-slashes.envsh /docker-entrypoint.d/18-cloistr-trim-url-slashes.envsh
+
 # Production values as defaults, so an image given no environment resolves to
 # production. That is what makes this safe to adopt on a live service: unset
 # means production, structurally, rather than by anyone remembering to set it.

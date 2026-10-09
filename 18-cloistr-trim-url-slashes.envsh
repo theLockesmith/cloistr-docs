@@ -1,0 +1,20 @@
+#!/bin/sh
+# Strip trailing slashes from the service URLs before the template step runs.
+#
+# Sourced by the nginx base image's entrypoint (it sources *.envsh in
+# /docker-entrypoint.d, in name order), so the exports reach
+# 20-envsubst-on-templates.sh. It must stay executable: the entrypoint skips a
+# .envsh file that is not.
+#
+# Why: the serving config appends its own slash (proxy_pass ${CLOISTR_SIGNER_URL}/;)
+# and the app joins paths onto these values, so "https://signer.example/" in a
+# deployment's environment would render "https://signer.example//". That is a
+# value an overlay can get wrong silently; normalising here means it cannot.
+for cloistr_var in CLOISTR_RELAY_URL CLOISTR_SIGNER_URL CLOISTR_BLOSSOM_URL CLOISTR_DISCOVERY_URL CLOISTR_APP_URL; do
+    eval "cloistr_val=\${$cloistr_var:-}"
+    while [ "${cloistr_val%/}" != "$cloistr_val" ]; do
+        cloistr_val=${cloistr_val%/}
+    done
+    eval "export $cloistr_var=\"\$cloistr_val\""
+done
+unset cloistr_var cloistr_val

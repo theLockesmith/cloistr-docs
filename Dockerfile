@@ -32,8 +32,27 @@ FROM nginxinc/nginx-unprivileged:alpine
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# The serving config goes to the TEMPLATE directory, not the active config
+# directory. The base image substitutes it at startup, before nginx starts, so
+# there is no entrypoint override and no script of ours to maintain.
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Production values as defaults, so an image given no environment resolves to
+# production. That is what makes this safe to adopt on a live service: unset
+# means production, structurally, rather than by anyone remembering to set it.
+# CLOISTR_SIGNER_URL also sets the /signer/ proxy upstream, the only path this
+# app uses to reach the signer.
+#
+# The filter is NOT optional. Without it the substitution tool replaces every
+# $NAME it recognises as a defined environment variable, and the serving config
+# contains nginx's own $uri, $remote_addr and $proxy_host.
+ENV CLOISTR_RELAY_URL=wss://relay.cloistr.xyz \
+    CLOISTR_SIGNER_URL=https://signer.cloistr.xyz \
+    CLOISTR_BLOSSOM_URL=https://files.cloistr.xyz \
+    CLOISTR_DISCOVERY_URL=https://discover.cloistr.xyz \
+    CLOISTR_APP_URL=https://docs.cloistr.xyz \
+    CLOISTR_ENVIRONMENT=production \
+    NGINX_ENVSUBST_FILTER=^CLOISTR_
 
 EXPOSE 8080
 

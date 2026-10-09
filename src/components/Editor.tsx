@@ -18,11 +18,15 @@ import { SearchAndReplace, searchPluginKey } from '../extensions/SearchAndReplac
 import { CommentMark } from '../extensions/CommentMark.js'
 import { editorJsonToDocxBlob, downloadDocx } from '../utils/docxExport.js'
 import { uploadToBlossom, BlossomUploadError } from '../utils/blossomUpload.js'
+import { resolveServiceAddresses } from '../lib/serviceAddresses.js'
 import { MenuBar, WordCountModal, buildMenus, toMenuSections } from './MenuBar.js'
 import { AppShell, AppShellToggle } from '@cloistr/ui/components'
 import { withSignerRetry, SignerRecovery } from '@cloistr/ui'
 
-const BLOSSOM_URL = import.meta.env.VITE_BLOSSOM_URL || 'https://nostr.download'
+// Resolved through the app's one service-address home so the file host follows
+// the environment. Order is runtime, then build-time, then default, so with no
+// runtime configuration this is identical to what it was before.
+const BLOSSOM_URL = resolveServiceAddresses().blossomUrl
 
 // ---------------------------------------------------------------------------
 // Types

@@ -19,6 +19,7 @@ import { CommentMark } from '../extensions/CommentMark.js'
 import { editorJsonToDocxBlob, downloadDocx } from '../utils/docxExport.js'
 import { uploadToBlossom, BlossomUploadError } from '../utils/blossomUpload.js'
 import { resolveServiceAddresses } from '../lib/serviceAddresses.js'
+import { documentView, canSave, saveBlockedReason } from '../lib/persistenceGate.js'
 import { MenuBar, WordCountModal, buildMenus, toMenuSections } from './MenuBar.js'
 import { AppShell, AppShellToggle } from '@cloistr/ui/components'
 import { withSignerRetry, SignerRecovery } from '@cloistr/ui'
@@ -185,7 +186,24 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
     { autoLoad: true, autoSaveInterval: 60000 },
   )
 
+  // What the editor shows and whether saving is allowed, from one place.
+  // 'failed' covers a relay that never answered: before collab-common 0.7.1
+  // that looked like "no document yet", the editor came up blank, and the next
+  // save replaced the real document with the blank one.
+  const view = documentView(persistenceState)
+  const [saveNotice, setSaveNotice] = useState<string | null>(null)
+  // Read through a ref so the Ctrl+S listener never acts on stale state.
+  const persistenceStateRef = useRef(persistenceState)
+  persistenceStateRef.current = persistenceState
+
   const handleSave = useCallback(async () => {
+    // Every save path (button, menu, Ctrl+S, signer retry) comes through here.
+    const blocked = saveBlockedReason(persistenceStateRef.current)
+    if (blocked) {
+      setSaveNotice(blocked)
+      return
+    }
+    setSaveNotice(null)
     setSignerError(null)
     try {
       // withSignerRetry wraps the save call and re-tries on retryable relay
@@ -462,6 +480,12 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
     }
   }, [shareUrl])
 
+  // Typing is only possible once the document has actually loaded, so nothing
+  // can be written into a document the relay has not delivered yet.
+  useEffect(() => {
+    if (editor && editor.isEditable !== (view === 'ready')) editor.setEditable(view === 'ready')
+  }, [editor, view])
+
   // ---- Keyboard shortcuts ----
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -577,14 +601,20 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
           {isConnected ? '🟢' : '🔴'}
           {peerCount > 0 && <span className="editor-peer-count"> +{peerCount}</span>}
         </span>
+        {saveNotice && (
+          <span className="editor-save-notice" role="status">{saveNotice}</span>
+        )}
         <button
           className={persistenceState.dirty ? 'save-dirty' : 'save-clean'}
           onClick={handleSave}
-          disabled={!persistenceState.initialized || persistenceState.saving || !persistenceState.dirty}
+          disabled={!canSave(persistenceState) || !persistenceState.dirty}
           title="Save document (Ctrl+S)"
           aria-label="Save document"
         >
-          {persistenceState.saving ? 'Saving…' : persistenceState.dirty ? 'Save' : 'Saved'}
+          {view === 'loading' ? 'Loading…'
+            : view === 'failed' ? 'Not loaded'
+            : persistenceState.saving ? 'Saving…'
+            : persistenceState.dirty ? 'Save' : 'Saved'}
         </button>
       </div>
 
@@ -909,7 +939,30 @@ export function Editor({ documentId, signer, publicKey, relayUrl, onBack }: Edit
       <div className="editor-main-row">
         {/* Editor surface */}
         <div className="editor-content-area">
-          <EditorContent editor={editor} />
+          {view === 'failed' ? (
+            // Never the editor: an empty editor here is exactly what used to
+            // get saved over the real document.
+            <div className="editor-load-error" role="alert">
+              <h2>This document could not be opened</h2>
+              <p>
+                Nothing has been changed or saved. The relay did not return the
+                document{persistenceState.loadError ? ` (${persistenceState.loadError.message})` : ''}.
+              </p>
+              <div className="editor-load-error-actions">
+                <button onClick={() => { setSaveNotice(null); void persistenceControls.load().catch(() => {}) }}>
+                  Retry
+                </button>
+                {onBack && <button className="modal-btn-secondary" onClick={onBack}>Back to documents</button>}
+              </div>
+            </div>
+          ) : (
+            <>
+              {view === 'loading' && (
+                <div className="editor-loading-banner" role="status">Loading document…</div>
+              )}
+              <EditorContent editor={editor} />
+            </>
+          )}
         </div>
 
         {/* Right panel */}

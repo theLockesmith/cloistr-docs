@@ -1258,6 +1258,29 @@ input:focus, textarea:focus, select:focus {
    @cloistr/ui's tests), so nothing here adds one.
    =========================================================================== */
 
+/* Load state: a failed load replaces the editor with this panel; a pending
+   load shows a banner above a read-only editor. */
+.editor-load-error {
+  max-width: 32rem;
+  margin: 4rem auto;
+  padding: 1.5rem;
+  border: 1px solid var(--cloistr-border, #d0d0d0);
+  border-radius: 8px;
+  text-align: center;
+}
+.editor-load-error h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+.editor-load-error-actions { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
+.editor-loading-banner {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  opacity: 0.75;
+}
+.editor-save-notice {
+  font-size: 0.85rem;
+  margin-right: 0.5rem;
+  opacity: 0.85;
+}
+
 .editor-signer-recovery-overlay {
   position: absolute;
   inset: 0;

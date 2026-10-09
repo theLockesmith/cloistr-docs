@@ -10,6 +10,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Runtime service configuration, emitted by this container at startup.
+      A plain script tag, not a fetch, and BEFORE the bundle: app modules
+      capture service URLs when they are imported, so a fetch would race.
+      In a dev server this 404s harmlessly and the reader falls back to the
+      dev environment variables exactly as before.
+    -->
+    <script src="/config.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,88 @@
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
+    gzip_min_length 1000;
+
+    # Runtime service configuration, substituted into this file at container
+    # start by the base image's own template step, and loaded by index.html
+    # before the app bundle.
+    #
+    # Two things here are load-bearing:
+    #
+    #   "location =" (exact match) rather than a prefix match. The regex
+    #   location below gives every .js file a one-year immutable cache. An exact
+    #   match outranks a regex match; a prefix match does not. With a prefix
+    #   match a browser would cache this response for a year and keep using
+    #   whichever environment it happened to see first.
+    #
+    #   no-store, for the same reason one layer out: an edge cache holding this
+    #   response would serve one environment's configuration to another.
+    #
+    # Unset variables substitute to empty strings, and the reader treats an
+    # empty string as absent and falls back to the value compiled into the
+    # bundle. That is why an empty environment still yields production.
+    location = /config.js {
+        access_log off;
+        default_type application/javascript;
+        add_header Cache-Control "no-store" always;
+        return 200 'window.__CLOISTR_CONFIG__={"relayUrl":"${CLOISTR_RELAY_URL}","blossomUrl":"${CLOISTR_BLOSSOM_URL}","discoveryUrl":"${CLOISTR_DISCOVERY_URL}","signerUrl":"${CLOISTR_SIGNER_URL}","appUrl":"${CLOISTR_APP_URL}","environment":"${CLOISTR_ENVIRONMENT}"};';
+    }
+
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Proxy signer API same-origin to avoid CORS on POST /api/v1/nostrconnect/session.
+    # The signer emits Access-Control-Allow-Origin for GET /api/v1/keys but not for
+    # the POST /api/v1/nostrconnect/session endpoint, which blocks the SSO restore in
+    # every SharedAuthProvider app that has not yet been added to the signer's allowlist.
+    # By routing /signer/* through this proxy the browser sees a same-origin request and
+    # no preflight is triggered.  Cookies with domain .cloistr.xyz are forwarded intact
+    # because the browser sends them to docs.cloistr.xyz and nginx passes them upstream.
+    #
+    # THE UPSTREAM HOST IS NOW SUBSTITUTED RATHER THAN HARDCODED, and for this app that
+    # is the whole conversion. This app reaches the signer ONLY through this proxy (it
+    # passes signerUrl="/signer"), so a hardcoded host here would send a staging
+    # deployment to the production signer no matter what the runtime configuration said,
+    # and no amount of app-side work would fix it.
+    #
+    # Substitution happens before nginx parses this file, so the upstream becomes a
+    # literal and needs no resolver directive, which it WOULD as a runtime variable.
+    #
+    # Host is $proxy_host (nginx's own: the host part of proxy_pass), NOT a second
+    # substituted variable. A separate host setting could disagree with the URL, and
+    # a staging deployment that set one and forgot the other would present the
+    # production host name to the staging signer. Deriving it removes that case.
+    # $proxy_host survives substitution because the filter only touches CLOISTR_*.
+    location /signer/ {
+        proxy_pass ${CLOISTR_SIGNER_URL}/;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_ssl_server_name on;
+        proxy_ssl_verify off;
+        # Forward Set-Cookie so signer session cookies reach the browser unchanged.
+        proxy_pass_header Set-Cookie;
+    }
+
+    # SPA fallback - serve index.html for all routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Health check
+    location /health {
+        access_log off;
+        return 200 "ok";
+        add_header Content-Type text/plain;
+    }
+}

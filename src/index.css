@@ -21,7 +21,7 @@
 
 a {
   font-weight: 500;
-  color: var(--cloistr-primary);
+  color: var(--cloistr-primary-text);
   text-decoration: inherit;
 }
 a:hover {
@@ -886,7 +886,7 @@ input:focus, textarea:focus, select:focus {
 
 /* Link styles */
 .ProseMirror a {
-  color: var(--cloistr-primary);
+  color: var(--cloistr-primary-text);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -1107,7 +1107,7 @@ input:focus, textarea:focus, select:focus {
   width: 1rem;
   flex-shrink: 0;
   font-size: 0.75rem;
-  color: var(--cloistr-primary);
+  color: var(--cloistr-primary-text);
 }
 
 .menubar-entry-label {
